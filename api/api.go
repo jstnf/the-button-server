@@ -39,15 +39,20 @@ type PressRequestBody struct {
 	UserId string `json:"userId"`
 }
 
+type PressErrorResponse struct {
+	Error string `json:"error"`
+}
+
 func (s *Server) handlePostPress(c *gin.Context) {
+	c.Header("Access-Control-Allow-Origin", "*")
 	var body PressRequestBody
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: "Invalid request body"})
 		return
 	}
+
 	localPresses++
 	whoPressed = body.UserId
-	c.Header("Access-Control-Allow-Origin", "*")
 	c.JSON(http.StatusOK, gin.H{"message": "pressed"})
 }
 
