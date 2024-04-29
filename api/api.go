@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jstnf/the-button-server/data"
 	"net/http"
+	"time"
 )
 
 type Server struct {
@@ -39,16 +40,54 @@ type PressRequestBody struct {
 	UserId string `json:"userId"`
 }
 
+type PressSuccessResponse struct {
+	Time int64 `json:"time"`
+}
+
+type PressErrorResponse struct {
+	Error string `json:"error"`
+}
+
 func (s *Server) handlePostPress(c *gin.Context) {
+	c.Header("Access-Control-Allow-Origin", "*")
 	var body PressRequestBody
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: data.ErrorUserUnknown})
 		return
 	}
-	localPresses++
-	whoPressed = body.UserId
-	c.Header("Access-Control-Allow-Origin", "*")
-	c.JSON(http.StatusOK, gin.H{"message": "pressed"})
+
+	// TODO authentication
+
+	// Get last press in general - if it's from the same user, return an error
+	lastPress, err := s.Store.GetLastPress()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
+		return
+	}
+	if lastPress != nil && lastPress.UserId == body.UserId {
+		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: data.ErrorPressedTwice})
+		return
+	}
+
+	// Get last press by user - if it's been less than 15s, return an error
+	lastPress, err = s.Store.GetLastPressByUser(body.UserId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
+		return
+	}
+	if lastPress != nil && lastPress.Time > (time.Now().Unix()*1000-15000) {
+		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: data.ErrorPressedTooSoon})
+		return
+	}
+
+	// Register press
+	t, err := s.Store.PressButton(body.UserId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, PressSuccessResponse{Time: t})
 }
 
 type DataResponse struct {
