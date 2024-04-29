@@ -16,14 +16,16 @@ type ButtonState struct {
 
 type Server struct {
 	listenAddr string
+	expiry     int64
 	Store      data.Storage
 	Users      data.UserStorage
 	state      *ButtonState
 }
 
-func NewAPIServer(listenAddr string, storage data.Storage, users data.UserStorage) *Server {
+func NewAPIServer(listenAddr string, expiry int64, storage data.Storage, users data.UserStorage) *Server {
 	return &Server{
 		listenAddr: listenAddr,
+		expiry:     expiry,
 		Store:      storage,
 		Users:      users,
 		state:      nil,
@@ -147,5 +149,5 @@ func (s *Server) handleGetData(c *gin.Context) {
 			name = user.Name
 		}
 	}
-	c.JSON(http.StatusOK, newDataResponse(s.state.Presses.Load(), name, 1716015600000))
+	c.JSON(http.StatusOK, newDataResponse(s.state.Presses.Load(), name, s.expiry))
 }

@@ -5,12 +5,25 @@ import (
 	"github.com/jstnf/the-button-server/data"
 	"log"
 	"os"
+	"strconv"
 )
 
 func main() {
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "3001"
+	}
+
+	expiryStr := os.Getenv("BUTTON_EXPIRY")
+	var expiry int64
+	if expiryStr == "" {
+		expiry = 0
+	} else {
+		parsed, err := strconv.ParseInt(expiryStr, 10, 64)
+		if err != nil {
+			log.Fatalf("Failed to parse BUTTON_EXPIRY: %v", err)
+		}
+		expiry = parsed
 	}
 
 	store, err := data.NewPostgresStorage(os.Getenv("SERVER_DATABASE_URL"))
@@ -27,7 +40,7 @@ func main() {
 		log.Fatalf("Failed to initialize user storage: %v", err)
 	}
 
-	router := api.NewAPIServer(":"+port, store, users)
+	router := api.NewAPIServer(":"+port, expiry, store, users)
 
 	log.Printf("Server is running on port %s", port)
 	log.Fatal(router.Run())
