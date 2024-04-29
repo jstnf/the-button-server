@@ -8,12 +8,12 @@ import (
 )
 
 func main() {
-	port := os.Getenv("PORT")
+	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "3001"
 	}
 
-	store, err := data.NewPostgresStorage(os.Getenv("DATABASE_URL"))
+	store, err := data.NewPostgresStorage(os.Getenv("SERVER_DATABASE_URL"))
 	if err != nil {
 		log.Fatalf("Failed to create storage: %v", err)
 	}
