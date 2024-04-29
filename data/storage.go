@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"github.com/jackc/pgx/v5"
+	"time"
 )
 
 type Storage interface {
@@ -39,16 +40,34 @@ func (s *PostgresStorage) Close() {
 }
 
 func (s *PostgresStorage) PressButton(userId string) error {
-	// TODO
-	return nil
+	_, err := s.conn.Exec(context.Background(), `
+		INSERT INTO presses (user_id, time) VALUES ($1, $2)
+	`, userId, time.Now().Unix())
+	return err
 }
 
 func (s *PostgresStorage) GetLastPress() (*Press, error) {
-	// TODO
-	return nil, nil
+	row := s.conn.QueryRow(context.Background(), `
+		SELECT user_id, t FROM presses ORDER BY t DESC LIMIT 1
+	`)
+	var userId string
+	var t int64
+	err := row.Scan(&userId, &t)
+	if err != nil {
+		return nil, err
+	}
+	return &Press{UserId: userId, Time: t}, nil
 }
 
 func (s *PostgresStorage) GetLastPressByUser(userId string) (*Press, error) {
-	// TODO
-	return nil, nil
+	row := s.conn.QueryRow(context.Background(), `
+		SELECT user_id, t FROM presses WHERE user_id = $1 ORDER BY t DESC LIMIT 1
+	`, userId)
+	var u string
+	var t int64
+	err := row.Scan(&u, &t)
+	if err != nil {
+		return nil, err
+	}
+	return &Press{UserId: u, Time: t}, nil
 }
