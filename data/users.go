@@ -21,6 +21,10 @@ func NewLocalUserStorage() *LocalUserStorage {
 	}
 }
 
+type Users struct {
+	Users []User `json:"users"`
+}
+
 func (s *LocalUserStorage) Init() error {
 	jsonFile, err := os.Open("users.json")
 	if err != nil {
@@ -34,11 +38,11 @@ func (s *LocalUserStorage) Init() error {
 	}(jsonFile)
 
 	byteValue, _ := io.ReadAll(jsonFile)
-	var users []User
+	var users Users
 	if err := json.Unmarshal(byteValue, &users); err != nil {
 		return err
 	}
-	for _, user := range users {
+	for _, user := range users.Users {
 		s.users[user.UserId] = &user
 	}
 	return nil
