@@ -17,13 +17,15 @@ type ButtonState struct {
 type Server struct {
 	listenAddr string
 	Store      data.Storage
+	Users      data.UserStorage
 	state      *ButtonState
 }
 
-func NewAPIServer(listenAddr string, storage data.Storage) *Server {
+func NewAPIServer(listenAddr string, storage data.Storage, users data.UserStorage) *Server {
 	return &Server{
 		listenAddr: listenAddr,
 		Store:      storage,
+		Users:      users,
 		state:      nil,
 	}
 }
@@ -76,7 +78,11 @@ func (s *Server) handlePostPress(c *gin.Context) {
 		return
 	}
 
-	// TODO authentication
+	user, err := s.Users.GetUserById(body.UserId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: data.ErrorUserUnknown})
+		return
+	}
 
 	// Get last press in general - if it's from the same user, return an error
 	lastPress, err := s.Store.GetLastPress()
@@ -84,13 +90,13 @@ func (s *Server) handlePostPress(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
 		return
 	}
-	if lastPress != nil && lastPress.UserId == body.UserId {
+	if lastPress != nil && lastPress.UserId == user.UserId {
 		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: data.ErrorPressedTwice})
 		return
 	}
 
 	// Get last press by user - if it's been less than 15s, return an error
-	lastPress, err = s.Store.GetLastPressByUser(body.UserId)
+	lastPress, err = s.Store.GetLastPressByUser(user.UserId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
 		return
@@ -101,7 +107,7 @@ func (s *Server) handlePostPress(c *gin.Context) {
 	}
 
 	// Register press
-	t, err := s.Store.PressButton(body.UserId)
+	t, err := s.Store.PressButton(user.UserId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
 		return
@@ -111,7 +117,7 @@ func (s *Server) handlePostPress(c *gin.Context) {
 	s.state.Presses.Add(1)
 	// Record press only if time is greater than the last press (cover race conditions)
 	if s.state.LastPress.Load() == nil || t > s.state.LastPress.Load().Time {
-		s.state.LastPress.Store(&data.Press{UserId: body.UserId, Time: t})
+		s.state.LastPress.Store(&data.Press{UserId: user.UserId, Time: t})
 	}
 
 	c.JSON(http.StatusOK, PressSuccessResponse{Time: t})
@@ -136,8 +142,10 @@ func (s *Server) handleGetData(c *gin.Context) {
 	var name = "no one"
 	lastPress := s.state.LastPress.Load()
 	if lastPress != nil {
-		// TODO resolve userId to name
-		name = lastPress.UserId
+		user, err := s.Users.GetUserById(lastPress.UserId)
+		if err == nil {
+			name = user.Name
+		}
 	}
 	c.JSON(http.StatusOK, newDataResponse(s.state.Presses.Load(), name, 1716015600000))
 }

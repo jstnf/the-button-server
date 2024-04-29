@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 )
@@ -44,5 +45,9 @@ func (s *LocalUserStorage) Init() error {
 }
 
 func (s *LocalUserStorage) GetUserById(id string) (*User, error) {
-	return s.users[id], nil
+	user, ok := s.users[id]
+	if !ok {
+		return nil, errors.New("user not found")
+	}
+	return user, nil
 }

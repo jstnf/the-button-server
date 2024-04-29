@@ -22,7 +22,12 @@ func main() {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
 
-	router := api.NewAPIServer(":"+port, store)
+	users := data.NewLocalUserStorage()
+	if err := users.Init(); err != nil {
+		log.Fatalf("Failed to initialize user storage: %v", err)
+	}
+
+	router := api.NewAPIServer(":"+port, store, users)
 
 	log.Printf("Server is running on port %s", port)
 	log.Fatal(router.Run())
