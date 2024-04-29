@@ -5,22 +5,45 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jstnf/the-button-server/data"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
+
+type ButtonState struct {
+	Presses   atomic.Int64
+	LastPress atomic.Pointer[data.Press]
+}
 
 type Server struct {
 	listenAddr string
 	Store      data.Storage
+	state      *ButtonState
 }
 
 func NewAPIServer(listenAddr string, storage data.Storage) *Server {
 	return &Server{
 		listenAddr: listenAddr,
 		Store:      storage,
+		state:      nil,
 	}
 }
 
 func (s *Server) Run() error {
+	s.state = &ButtonState{}
+	// Initialize last button state
+	presses, err := s.Store.GetNumberOfPresses()
+	if err != nil {
+		return err
+	}
+	lastPress, err := s.Store.GetLastPress()
+	if err != nil {
+		return err
+	}
+	if lastPress != nil {
+		s.state.LastPress.Store(lastPress)
+	}
+	s.state.Presses.Store(presses)
+
 	router := gin.Default()
 
 	v1 := router.Group("/api/v1")
@@ -32,9 +55,6 @@ func (s *Server) Run() error {
 	router.Use(cors.Default())
 	return router.Run(s.listenAddr)
 }
-
-var localPresses int64 = 0
-var whoPressed string = "no one"
 
 type PressRequestBody struct {
 	UserId string `json:"userId"`
@@ -87,6 +107,13 @@ func (s *Server) handlePostPress(c *gin.Context) {
 		return
 	}
 
+	// Update cached state
+	s.state.Presses.Add(1)
+	// Record press only if time is greater than the last press (cover race conditions)
+	if s.state.LastPress.Load() == nil || t > s.state.LastPress.Load().Time {
+		s.state.LastPress.Store(&data.Press{UserId: body.UserId, Time: t})
+	}
+
 	c.JSON(http.StatusOK, PressSuccessResponse{Time: t})
 }
 
@@ -96,7 +123,7 @@ type DataResponse struct {
 	Expiry     int64  `json:"expiry"`
 }
 
-func NewDataResponse(presses int64, whoPressed string, expiry int64) *DataResponse {
+func newDataResponse(presses int64, whoPressed string, expiry int64) *DataResponse {
 	return &DataResponse{
 		Presses:    presses,
 		WhoPressed: whoPressed,
@@ -106,5 +133,11 @@ func NewDataResponse(presses int64, whoPressed string, expiry int64) *DataRespon
 
 func (s *Server) handleGetData(c *gin.Context) {
 	c.Header("Access-Control-Allow-Origin", "*")
-	c.JSON(http.StatusOK, NewDataResponse(localPresses, whoPressed, 1716015600000))
+	var name = "no one"
+	lastPress := s.state.LastPress.Load()
+	if lastPress != nil {
+		// TODO resolve userId to name
+		name = lastPress.UserId
+	}
+	c.JSON(http.StatusOK, newDataResponse(s.state.Presses.Load(), name, 1716015600000))
 }
