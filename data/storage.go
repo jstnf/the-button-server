@@ -7,7 +7,7 @@ import (
 )
 
 type Storage interface {
-	PressButton(userId string) error
+	PressButton(userId string) (int64, error)
 	GetLastPress() (*Press, error)
 	GetLastPressByUser(userId string) (*Press, error)
 }
@@ -39,11 +39,12 @@ func (s *PostgresStorage) Close() {
 	_ = s.conn.Close(context.Background())
 }
 
-func (s *PostgresStorage) PressButton(userId string) error {
+func (s *PostgresStorage) PressButton(userId string) (int64, error) {
+	now := time.Now().Unix()
 	_, err := s.conn.Exec(context.Background(), `
 		INSERT INTO presses (user_id, time) VALUES ($1, $2)
-	`, userId, time.Now().Unix())
-	return err
+	`, userId, now)
+	return now, err
 }
 
 func (s *PostgresStorage) GetLastPress() (*Press, error) {
