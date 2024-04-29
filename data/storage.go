@@ -40,7 +40,7 @@ func (s *PostgresStorage) Close() {
 }
 
 func (s *PostgresStorage) PressButton(userId string) (int64, error) {
-	now := time.Now().Unix()
+	now := time.Now().Unix() * 1000
 	_, err := s.conn.Exec(context.Background(), `
 		INSERT INTO presses (user_id, time) VALUES ($1, $2)
 	`, userId, now)
