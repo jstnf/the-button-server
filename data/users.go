@@ -43,11 +43,8 @@ func (s *LocalUserStorage) Init() error {
 		return err
 	}
 	for _, user := range users.Users {
-		print(user.UserId)
-		print(user.Name)
-		s.users[user.UserId] = &user
+		s.users[user.UserId] = &User{UserId: user.UserId, Name: user.Name}
 	}
-	print(s.users)
 	return nil
 }
 
