@@ -10,6 +10,7 @@ type Storage interface {
 	PressButton(userId string) (int64, error)
 	GetLastPress() (*Press, error)
 	GetLastPressByUser(userId string) (*Press, error)
+	GetNumberOfPresses() (int64, error)
 }
 
 type PostgresStorage struct {
@@ -71,4 +72,13 @@ func (s *PostgresStorage) GetLastPressByUser(userId string) (*Press, error) {
 		return nil, err
 	}
 	return &Press{UserId: u, Time: t}, nil
+}
+
+func (s *PostgresStorage) GetNumberOfPresses() (int64, error) {
+	var count int64
+	row := s.conn.QueryRow(context.Background(), `
+		SELECT COUNT(*) FROM presses
+	`)
+	err := row.Scan(&count)
+	return count, err
 }
