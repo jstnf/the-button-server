@@ -30,7 +30,7 @@ func (s *PostgresStorage) Init() error {
 		CREATE TABLE IF NOT EXISTS presses (
 		    			id SERIAL PRIMARY KEY,
 		    			user_id TEXT NOT NULL,
-		    			time BIGINT NOT NULL
+		    			time_pressed BIGINT NOT NULL
 		)
 	`)
 	return err
@@ -43,14 +43,14 @@ func (s *PostgresStorage) Close() {
 func (s *PostgresStorage) PressButton(userId string) (int64, error) {
 	now := time.Now().Unix() * 1000
 	_, err := s.conn.Exec(context.Background(), `
-		INSERT INTO presses (user_id, time) VALUES ($1, $2)
+		INSERT INTO presses (user_id, time_pressed) VALUES ($1, $2)
 	`, userId, now)
 	return now, err
 }
 
 func (s *PostgresStorage) GetLastPress() (*Press, error) {
 	row := s.conn.QueryRow(context.Background(), `
-		SELECT user_id, t FROM presses ORDER BY t DESC LIMIT 1
+		SELECT user_id, time_pressed FROM presses ORDER BY time_pressed DESC LIMIT 1
 	`)
 	var userId string
 	var t int64
@@ -63,7 +63,7 @@ func (s *PostgresStorage) GetLastPress() (*Press, error) {
 
 func (s *PostgresStorage) GetLastPressByUser(userId string) (*Press, error) {
 	row := s.conn.QueryRow(context.Background(), `
-		SELECT user_id, t FROM presses WHERE user_id = $1 ORDER BY t DESC LIMIT 1
+		SELECT user_id, time_pressed FROM presses WHERE user_id = $1 ORDER BY time_pressed DESC LIMIT 1
 	`, userId)
 	var u string
 	var t int64
