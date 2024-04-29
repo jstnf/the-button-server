@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	"github.com/jackc/pgx/v5"
 	"time"
 )
@@ -56,6 +57,9 @@ func (s *PostgresStorage) GetLastPress() (*Press, error) {
 	var t int64
 	err := row.Scan(&userId, &t)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &Press{UserId: userId, Time: t}, nil
@@ -69,6 +73,9 @@ func (s *PostgresStorage) GetLastPressByUser(userId string) (*Press, error) {
 	var t int64
 	err := row.Scan(&u, &t)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return &Press{UserId: u, Time: t}, nil
