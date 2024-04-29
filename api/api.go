@@ -17,8 +17,8 @@ type ButtonState struct {
 type Server struct {
 	listenAddr string
 	expiry     int64
-	Store      data.Storage
-	Users      data.UserStorage
+	storage    data.Storage
+	users      data.UserStorage
 	state      *ButtonState
 }
 
@@ -26,8 +26,8 @@ func NewAPIServer(listenAddr string, expiry int64, storage data.Storage, users d
 	return &Server{
 		listenAddr: listenAddr,
 		expiry:     expiry,
-		Store:      storage,
-		Users:      users,
+		storage:    storage,
+		users:      users,
 		state:      nil,
 	}
 }
@@ -35,11 +35,11 @@ func NewAPIServer(listenAddr string, expiry int64, storage data.Storage, users d
 func (s *Server) Run() error {
 	s.state = &ButtonState{}
 	// Initialize last button state
-	presses, err := s.Store.GetNumberOfPresses()
+	presses, err := s.storage.GetNumberOfPresses()
 	if err != nil {
 		return err
 	}
-	lastPress, err := s.Store.GetLastPress()
+	lastPress, err := s.storage.GetLastPress()
 	if err != nil {
 		return err
 	}
@@ -80,14 +80,14 @@ func (s *Server) handlePostPress(c *gin.Context) {
 		return
 	}
 
-	user, err := s.Users.GetUserById(body.UserId)
+	user, err := s.users.GetUserById(body.UserId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: data.ErrorUserUnknown})
 		return
 	}
 
 	// Get last press in general - if it's from the same user, return an error
-	lastPress, err := s.Store.GetLastPress()
+	lastPress, err := s.storage.GetLastPress()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
 		return
@@ -98,7 +98,7 @@ func (s *Server) handlePostPress(c *gin.Context) {
 	}
 
 	// Get last press by user - if it's been less than 15s, return an error
-	lastPress, err = s.Store.GetLastPressByUser(user.UserId)
+	lastPress, err = s.storage.GetLastPressByUser(user.UserId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
 		return
@@ -109,7 +109,7 @@ func (s *Server) handlePostPress(c *gin.Context) {
 	}
 
 	// Register press
-	t, err := s.Store.PressButton(user.UserId)
+	t, err := s.storage.PressButton(user.UserId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
 		return
@@ -144,7 +144,7 @@ func (s *Server) handleGetData(c *gin.Context) {
 	var name = "no one"
 	lastPress := s.state.LastPress.Load()
 	if lastPress != nil {
-		user, err := s.Users.GetUserById(lastPress.UserId)
+		user, err := s.users.GetUserById(lastPress.UserId)
 		if err == nil {
 			name = user.Name
 		}
