@@ -135,16 +135,18 @@ func (s *Server) handlePostPress(c *gin.Context) {
 }
 
 type DataResponse struct {
-	Presses    int64  `json:"presses"`
-	WhoPressed string `json:"whoPressed"`
-	Expiry     int64  `json:"expiry"`
+	Presses        int64  `json:"presses"`
+	WhoPressed     string `json:"whoPressed"`
+	Expiry         int64  `json:"expiry"`
+	MillisPerPress int64  `json:"millisPerPress"`
 }
 
-func newDataResponse(presses int64, whoPressed string, expiry int64) *DataResponse {
+func newDataResponse(presses int64, whoPressed string, expiry int64, millisPerPress int64) *DataResponse {
 	return &DataResponse{
-		Presses:    presses,
-		WhoPressed: whoPressed,
-		Expiry:     expiry,
+		Presses:        presses,
+		WhoPressed:     whoPressed,
+		Expiry:         expiry,
+		MillisPerPress: millisPerPress,
 	}
 }
 
@@ -158,7 +160,7 @@ func (s *Server) handleGetData(c *gin.Context) {
 			name = user.Name
 		}
 	}
-	c.JSON(http.StatusOK, newDataResponse(s.state.Presses.Load(), name, s.expiry))
+	c.JSON(http.StatusOK, newDataResponse(s.state.Presses.Load(), name, s.expiry, s.millisPerPress))
 }
 
 func (s *Server) buttonExpired() bool {
