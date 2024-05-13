@@ -26,6 +26,18 @@ func main() {
 		expiry = parsed
 	}
 
+	millisPerPressStr := os.Getenv("MILLIS_DEDUCTED_PER_PRESS")
+	var millisPerPress int64
+	if millisPerPressStr == "" {
+		millisPerPress = 0
+	} else {
+		parsed, err := strconv.ParseInt(millisPerPressStr, 10, 64)
+		if err != nil {
+			log.Fatalf("Failed to parse MILLIS_DEDUCTED_PER_PRESS: %v", err)
+		}
+		millisPerPress = parsed
+	}
+
 	store, err := data.NewPostgresStorage(os.Getenv("SERVER_DATABASE_URL"))
 	if err != nil {
 		log.Fatalf("Failed to create storage: %v", err)
@@ -40,7 +52,7 @@ func main() {
 		log.Fatalf("Failed to initialize user storage: %v", err)
 	}
 
-	router := api.NewAPIServer(":"+port, expiry, store, users)
+	router := api.NewAPIServer(":"+port, expiry, millisPerPress, store, users)
 
 	log.Printf("Server is running on port %s", port)
 	log.Fatal(router.Run())

@@ -15,20 +15,22 @@ type ButtonState struct {
 }
 
 type Server struct {
-	listenAddr string
-	expiry     int64
-	storage    data.Storage
-	users      data.UserStorage
-	state      *ButtonState
+	listenAddr     string
+	expiry         int64
+	millisPerPress int64
+	storage        data.Storage
+	users          data.UserStorage
+	state          *ButtonState
 }
 
-func NewAPIServer(listenAddr string, expiry int64, storage data.Storage, users data.UserStorage) *Server {
+func NewAPIServer(listenAddr string, expiry int64, millisPerPress int64, storage data.Storage, users data.UserStorage) *Server {
 	return &Server{
-		listenAddr: listenAddr,
-		expiry:     expiry,
-		storage:    storage,
-		users:      users,
-		state:      nil,
+		listenAddr:     listenAddr,
+		expiry:         expiry,
+		millisPerPress: millisPerPress,
+		storage:        storage,
+		users:          users,
+		state:          nil,
 	}
 }
 
@@ -77,6 +79,13 @@ func (s *Server) handlePostPress(c *gin.Context) {
 	var body PressRequestBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: data.ErrorUserUnknown})
+		return
+	}
+
+	// Compute if the button has expired
+	// Formula is expiry - currentTime - (numPresses * env.MILLIS_DEDUCTED_PER_PRESS)
+	if s.buttonExpired() {
+		c.JSON(http.StatusBadRequest, PressErrorResponse{Error: data.ErrorButtonExpired})
 		return
 	}
 
@@ -150,4 +159,8 @@ func (s *Server) handleGetData(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, newDataResponse(s.state.Presses.Load(), name, s.expiry))
+}
+
+func (s *Server) buttonExpired() bool {
+	return s.expiry-(time.Now().Unix()*1000)-(s.state.Presses.Load()*s.millisPerPress) < 0
 }
