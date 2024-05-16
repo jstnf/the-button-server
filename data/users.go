@@ -9,6 +9,7 @@ import (
 
 type UserStorage interface {
 	GetUserById(id string) (*User, error)
+	GetAllUsers() ([]*User, error)
 }
 
 type LocalUserStorage struct {
@@ -54,4 +55,12 @@ func (s *LocalUserStorage) GetUserById(id string) (*User, error) {
 		return nil, errors.New("user not found")
 	}
 	return user, nil
+}
+
+func (s *LocalUserStorage) GetAllUsers() ([]*User, error) {
+	users := make([]*User, 0, len(s.users))
+	for _, user := range s.users {
+		users = append(users, user)
+	}
+	return users, nil
 }

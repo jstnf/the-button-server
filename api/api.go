@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jstnf/the-button-server/data"
 	"net/http"
+	"sort"
 	"sync/atomic"
 	"time"
 )
@@ -56,6 +57,7 @@ func (s *Server) Run() error {
 	{
 		v1.POST("/press", s.handlePostPress)
 		v1.GET("/data", s.handleGetData)
+		v1.GET("/whowaslast", s.handleWhoWasLast)
 	}
 
 	router.Use(cors.Default())
@@ -165,4 +167,37 @@ func (s *Server) handleGetData(c *gin.Context) {
 
 func (s *Server) buttonExpired() bool {
 	return s.expiry-(time.Now().Unix()*1000)-(s.state.Presses.Load()*s.millisPerPress) < 0
+}
+
+type WhoWasLastUserEntry struct {
+	Name string `json:"name"`
+	Time int64  `json:"time"`
+}
+
+type WhoWasLastResponse struct {
+	Users []WhoWasLastUserEntry `json:"users"`
+}
+
+func (s *Server) handleWhoWasLast(c *gin.Context) {
+	c.Header("Access-Control-Allow-Origin", "*")
+	var lastPressData []WhoWasLastUserEntry
+	allUsers, err := s.users.GetAllUsers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
+		return
+	}
+	for _, user := range allUsers {
+		lastPress, err := s.storage.GetLastPressByUser(user.UserId)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, PressErrorResponse{Error: err.Error()})
+			return
+		}
+		if lastPress != nil {
+			i := sort.Search(len(lastPressData), func(i int) bool { return lastPressData[i].Time > lastPress.Time })
+			lastPressData = append(lastPressData, WhoWasLastUserEntry{})
+			copy(lastPressData[i+1:], lastPressData[i:])
+			lastPressData[i] = WhoWasLastUserEntry{Name: user.Name, Time: lastPress.Time}
+		}
+	}
+	c.JSON(http.StatusOK, WhoWasLastResponse{Users: lastPressData})
 }
